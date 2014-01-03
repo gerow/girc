@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"os/user"
 	"strings"
 )
 
@@ -158,6 +159,26 @@ func (connection *Connection) Connect() error {
 			}
 		}
 	}()
+
+	err = connection.Send("NICK", connection.Nick)
+	if err != nil {
+		return err
+	}
+	/*
+	 * query the local system for a username. This isn't *really* necessary,
+	 * but it really isn't that big of a deal to do it away
+	 */
+	user, err := user.Current()
+	if err != nil {
+		log.Print(err)
+		user.Username = "unknown"
+	}
+
+	err = connection.Send("USER", user.Username, "0", "*", "An IRC bot built with girc")
+
+	if err != nil {
+		return err
+	}
 
 	return nil
 }
