@@ -1,3 +1,4 @@
+// Package girc is a library for acting as an IRC client.
 package girc
 
 import (
@@ -10,12 +11,22 @@ import (
 	"strings"
 )
 
+// struct Command describes an IRC command. Any IRC command
+// consists of three parts: An optional source hostname,
+// the type of the command (for example PING, or PRIVMSG)
+// followed by a number of arguments. Only the final argument
+// may have spaces in it. These are represented with Source,
+// Type, and Args respectively.
 type Command struct {
 	Source string
 	Type   string
 	Args   []string
 }
 
+// struct Connection describes an IRC connection. Location
+// is the URI for the server, and Nick is the nick we wish to
+// use. Connection also includes a Finished channel that will
+// be closed when the Connection itself is closed.
 type Connection struct {
 	Location  string
 	Nick      string
@@ -24,6 +35,12 @@ type Connection struct {
 	Finished  chan bool
 }
 
+// New creates a new Connection given the uri of the server
+// and the nick we wish to use. The returned connection is
+// not actually connected yet. This is in order to give the
+// programmer time to actually add listeners if they wish
+// to listen in on message interchanges during the connection
+// process.
 func New(uri string, nick string) *Connection {
 	var connection Connection
 
@@ -33,6 +50,9 @@ func New(uri string, nick string) *Connection {
 	return &connection
 }
 
+// Raw turns a given Command into its Raw form. See RFC 1459
+// section 2.3 <http://tools.ietf.org/html/rfc1459.html#section-2.3>
+// for details on how this is accomplished.
 func (command *Command) Raw() (string, error) {
 	out := []string{}
 	if command.Source != "" {
@@ -55,6 +75,7 @@ func (command *Command) Raw() (string, error) {
 	return fmt.Sprintf("%s\r\n", strings.Join(out, " ")), nil
 }
 
+// SendCommand sends a given command to the server on the given connection
 func (connection *Connection) SendCommand(command *Command) error {
 	raw_form, err := command.Raw()
 	if err != nil {
@@ -66,10 +87,21 @@ func (connection *Connection) SendCommand(command *Command) error {
 	return nil
 }
 
+// AddListener adds a new channel as a listener to the given connection. Any
+// incoming messages will be converted to their Command form and
+// written to the given channel. This channel should probably be
+// buffered for the best performance. It will not cause the connection
+// routine to hang if this is not the case as it will create goroutines
+// on the fly to handle this, but if the channel is appropriately buffered
+// this will not be necessary. After the connection is closed this channel
+// will be closed.
 func (connection *Connection) AddListener(channel chan *Command) {
 	connection.listeners = append(connection.listeners, channel)
 }
 
+// Send sends a command. This is basically short for creating a command and
+// sending it using SendCommand. This function takes the command type (for
+// example PRIVMSG, PING, etc) and a variadic list of arguments for that command.
 func (connection *Connection) Send(cmdtype string, args ...string) error {
 	var command Command
 
@@ -81,6 +113,10 @@ func (connection *Connection) Send(cmdtype string, args ...string) error {
 	return err
 }
 
+// Close closes the connection. It does this by simply closing
+// the actual TCP connection. The connection thread will notice
+// this and appropriately call close() on all the listening
+// channels it has at the time.
 func (connection *Connection) Close() error {
 	/*
 	 * close the connection to the server.
@@ -98,6 +134,13 @@ func (connection *Connection) Close() error {
 	return err
 }
 
+// Connect actual causes the given connection to open
+// a TCP connection. In addition to this, it spins off
+// two goroutines. One listens for and handles incoming
+// messages from the server. The other simply responds to
+// PINGs automatically. After this it registers the requested
+// NICK with the server and issues a USER command to complete
+// the connection.
 func (connection *Connection) Connect() error {
 	conn, err := net.Dial("tcp", connection.Location)
 	connection.conn = conn
