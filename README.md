@@ -19,4 +19,4 @@ Documentation is in the form of standard godoc directives. Simply typing
 
 In the source directory will print this documentation to the console.
 
-Please see (https://github.com/gerow/garchive)[garchive] as an example use of girc.
+Please see [garchive](https://github.com/gerow/garchive) as an example use of girc.
